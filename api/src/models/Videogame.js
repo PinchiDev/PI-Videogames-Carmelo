@@ -22,12 +22,13 @@ module.exports = (sequelize) => {
     rating: {
       type: DataTypes.INTEGER
     },
-//    id: DataTypes.UUID,
-//    defaultValue: DataTypes.UUIDV4,
-//    primaryKey: true
+    image: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    }
   }, {
-    timestamps: true,
-    createdAt: 'creado',
+    timestamps: false,
+    createdAt: false,
     updatedAt: false
   });
 };
