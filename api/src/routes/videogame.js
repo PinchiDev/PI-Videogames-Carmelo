@@ -1,61 +1,95 @@
 require('dotenv').config();
-const { API_KEY } = process.env;
+const  API_KEY = process.env.API_KEY;
 const { Router } = require('express');
 const router = Router();
 const axios = require('axios').default;
-const { Genre, Videogame } = require('../db');
+const { Videogame, Genre } = require('../db');
 
 
-//get  http://localhost:3001/videogames
 
-//consulta a la api https://api.rawg.io/api/games?key=5bdd7a2d70c0459ab0ec469d04dd3b21
-//console.log(API_KEY);
-router.get('/', async (req , res) => {
-    try {
-        const { name } = req.query;
-        if (name) {
-        const gamesAPI = await axios.get(`https://api.rawg.io/api/games?search=${name}&key=${API_KEY}`)
-        .catch(err => undefined);
-        if (!gamesAPI) {
-            const gamesDB = Videogame.findOne({
-                where: { name: name}
-            });
+router.get('/:idVideogame', async (req, res) => {
+  
+    const { idVideogame } = req.params
+    if (idVideogame.includes('- ')) {
+        let videogameDb = await Videogame.findOne({
+            where: {
+                id: idVideogame,
+            },
+            include: Genre
+        })
+        //Parseo el objeto
+        videogameDb = JSON.stringify(videogameDb);
+        videogameDb = JSON.parse(videogameDb);
+        
+        //dejo un array con los nombres de genero solamente
+        videogameDb.genres = videogameDb.genres.map(g => g.name);
+        res.json(videogameDb)
+    } else {
+        try {
             
-            if (gamesDB) {
-                return res.json(gamesDB);
-            }
-            else {
-                return res.status(404).json({msg: 'no lo encontro en DB ni en API'})
-            }
-         }
-           else {
-            return res.json(gamesAPI)
-         }
-        }
-        else {
-        
-            const gameDB = await Videogame.findAll({
-                includes: {
-                    model: Genre,
-                    // attributes: ["name"],
-                    // through: {
-                    //     attributes: []
-                    // }   
-                }
-            });
+            const response = await axios.get(`https://api.rawg.io/api/games/${idVideogame}?key=${API_KEY}`);
+            let { id, name, background_image, genres, description, released: releaseDate, rating, platforms } = response.data;
+            //console.log(response.data)
+            genres = genres.map(g => g.name); // ACA MODIFICO EL ARRAY ENORME DE GENEROS SIMPLIFICANDOLO A UNO QUE SOLO TARE LOS NOMBRES
+            platforms = platforms.map(p => p.platform.name); // LO MISMO DE ARRIBA PERO CON PLATAFORMAS
 
-        const gameAPI = await axios.get(`https://api.rawg.io/api/games?key=${API_KEY}`)
-        const gamesAPItraidos = gameAPI.data.results;
-        const allGames = gamesAPItraidos.concat(gameDB);
-        return res.json(allGames);
+            //CONVIERTO TODO A JSON CON SOLAMENTE LOS CAMPOS QUE ME PIDIERON Y LO RETORNO
+            return res.json({
+                id,
+                name,
+                background_image,
+                genres,
+                description,
+                releaseDate,
+                rating,
+                platforms
+            })
+            
+        } catch (err) {
+            return console.log(err)
         }
-        
     }
-    catch (err) {
-//        throw new Error(err);
-            res.status(400).send({err:err.message});
-    }
+    
+})
 
+router.post('/', async (req, res) => {
+
+    
+
+    let { name, description, releaseDate, rating, genres, platforms } = req.body;
+    platforms = platforms.join('-')
+
+    const capitalizar = (name)=> {
+        return name.charAt(0).toUpperCase() + name.slice(1);
+      }
+
+    if(!name || !description || !rating)
+    return res.status(400).json({msg:"faltan datos"})
+    try {
+        const gameCreated = await Videogame.findOrCreate({ //devuelvo un array (OJOOO!!!!)
+          
+            where: {
+                name: capitalizar(name),
+                description,
+                releaseDate,
+                rating,
+                platforms
+                
+            }
+            
+        })
+    
+
+        
+        await gameCreated[0].setGenres(genres); // relaciono ID genres al juego creado
+        
+       
+        res.json(gameCreated)
+        
+    } catch (err) {
+        throw new Error(err)
+    }
+   
 })
 
 module.exports = router;
