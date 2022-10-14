@@ -10,7 +10,7 @@ const { Videogame, Genre } = require('../db');
 router.get('/:idVideogame', async (req, res) => {
   
     const { idVideogame } = req.params
-    if (idVideogame.includes('- ')) {
+    if (idVideogame.includes('-')) {
         let videogameDb = await Videogame.findOne({
             where: {
                 id: idVideogame,
@@ -57,13 +57,13 @@ router.post('/', async (req, res) => {
     
 
     let { name, description, releaseDate, rating, genres, platforms } = req.body;
-    platforms = platforms.join('-')
+    platforms = platforms.join('- ')
 
     const capitalizar = (name)=> {
         return name.charAt(0).toUpperCase() + name.slice(1);
       }
 
-    if(!name || !description || !rating)
+    if(!name || !description || !rating || !genres || !platforms)
     return res.status(400).json({msg:"faltan datos"})
     try {
         const gameCreated = await Videogame.findOrCreate({ //devuelvo un array (OJOOO!!!!)
@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
         
        
         res.json(gameCreated)
-        
+
     } catch (err) {
         throw new Error(err)
     }
